@@ -1,0 +1,20 @@
+﻿  100.c
+  3.15汉诺塔.c
+  3.2int_power.c
+  3.5数字转文字.c
+  3.7twin_prime.c
+  3.8strongnumber.c
+  3.9timeConvertor.c
+  copystring.c
+C:\Users\shinomiya_akirawane\Desktop\COMP0002\COMP0002\copystring.c(25,30): warning C4013: “malloc”未定义；假设外部返回 int
+C:\Users\shinomiya_akirawane\Desktop\COMP0002\COMP0002\copystring.c(25,53): warning C4312: “类型强制转换”: 从“int”转换到更大的“char *”
+C:\Users\shinomiya_akirawane\Desktop\COMP0002\COMP0002\copystring.c(44,51): warning C4312: “类型强制转换”: 从“int”转换到更大的“char *”
+C:\Users\shinomiya_akirawane\Desktop\COMP0002\COMP0002\copystring.c(45,2): error C4996: 'scanf': This function or variable may be unsafe. Consider using scanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  task 1 高精度算数.c
+  test.c
+  3.1三角形面积.c
+  3.3回文数.c
+  大数取模.c
+  素数筛.c
+  3.4阶乘.c
+  正在生成代码...

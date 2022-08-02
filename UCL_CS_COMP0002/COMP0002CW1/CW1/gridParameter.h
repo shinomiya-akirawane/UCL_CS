@@ -1,0 +1,7 @@
+#ifndef GRIDPARAMETER_H
+#define SEMI_SQUARE_LEN 13
+#define SQUARE_LEN 25
+#define GRID_WIDTH 300
+#define GRID_LEN 350
+#define GRID_LEFT_CONRNER 25
+#endif

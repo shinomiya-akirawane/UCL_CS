@@ -1,0 +1,274 @@
+Pacman Protocol Specification
+=============================
+
+Terminology
+===========
+
+This specification uses the terms MUST, SHOULD, and MAY as defined in 
+RFC 2119 [rfc2119]
+
+The Pacman Protocol runs over both TCP and UDP, using the same port 
+of 5432. The transport protocols of messages are distinguished by 
+different IP header.There are 3 kinds of messages: INIT, STREAM_INFO, 
+KEY_INFO. INIT and KEY_INFO runs over TCP while KEY_INFO runs over UDP.
+
+When the Pacman is moved by a player, the computer SHOULD send 
+STREAM_INFO continouslly, so that the others receives this and used it to 
+update the display of remote window. 
+
+If the pacman triggers events, the computer MUST send KEY_INFO. The other
+computer receive it, and use it to update the display of both remote 
+window and remote game status. 
+
+Notify that when the Pacman become a foreign pacman, the display color is
+changed from yellow to pink. It SHOULD able to do whatever it can do as 
+local pacman. We need to be careful that it interact with remote environment.
+The computer SHOULD send messages to remote computer, so that it can change
+display.
+
+When some STREAM_INFO messages lose, the pacman will continue with current
+direction and speed until it receive another message. Due to the frequency
+of sending is very high, it won't impact a lot in pacman behavior.
+
+Determining which maze is used.
+===============================
+
+Player are playing on different maze. Once a connection has been established,
+a INIT message sends to each other. The contents of INIT message are:
+
+    - Type: INIT
+    - Value: round is an integar indicating the round of INIT messages 
+    this message is a part of, start at 0 and increase by 1 for each 
+    INIT sent.
+        determine_Masteris an random integar betweem 1 to 1000.
+        MazeNumis an random integar between 0 to 2 indicating the maze used 
+    by player.
+
+    Also include other Maze_content.
+    - Protocal: TCP
+
+Each computer compares the values of determine_Master it sent and it received.
+The computer then choose the highest value computer's MazeNum to generate the
+display.
+
+If the determine_Master values are same, the round value increase by 1 and
+each computer generate another determine_Master value. The process is repeated.
+
+Message contents
+================
+
+The contents of STREAM_INFO are:
+
+    - Type: STREAM_INFO
+    - Value: It includes messages that are not sensitive:pacman update,
+    ghost update, score update, maze update.
+        Pacman update contains x,y coordinates of current pacman position, an
+    integar indicating its direction and an integar indicating its speed.
+        Ghost update is combined by four ghosts information. It contains four parts.
+    Each part has an integar id which represents which ghost the part 
+    represents. There are x,y coordinates of current ghost position, an
+    integar indicating its direction, an integar indicating the mode and 
+    an integar indicating its speed in each part.  
+        Score update contains an integar indicating the current score.
+        Maze update contains an char array indicating current Maze situation,
+    including the wall and all food hasn't been eaten.
+    - Protocol: UDP
+
+The contents of KEY_INFO are:
+
+    -Type: KEY_INFO
+    -Value: It includes messages that are sensitive:pacman died, lives update,
+    ghost was eaten,foreign pacman ate ghost,pacman arrived,pacman left,
+    pacman go home,eat,status update.
+        Pacman died, pacman arrived, pacman left, pacman go home are boolean 
+    values indicating pacman current status.Ghost was eaten and foreign 
+    pacman ate ghost are combined to one message called Eaten Ghost. 
+    It contains a boolean variable named is_foreign as the id to 
+    distinguish whether the items are eaten by local or foreign and a
+    integar value to distinguish which ghost has been eaten.
+        Lives update contains a integar in range of 0 to 5 indicating remaining
+    lives of pacman.
+        Eat contains x,y coordinates of the items has been eaten by pacmans,
+    and two boolean values. One is is_foreign to indicating which pacman 
+    eat it,another is is_powerpill which indicate the item type.
+        Status update contains an integar indicating the game status.The status are 
+    GAME_OVER,NEXT_LEVEL_WAIT,READY_TO_RESTART
+    -Protocol: TCP
+
+Message Timing
+==============
+
+    When the game starts, INIT is sent.
+    While the pacman and ghost are moving, STREAM_INFO SHOULD be sent as
+fast as it can be.The time period is 34ms. If local computer can't maintain
+30 frames, STREAM_INFO MAY be sent once per frame. The reason is that the
+remote display don't need to be update faster than local one, and if the
+send frequency is high,UDP packet overlap TCP packet. Only when events 
+are triggered, KEY_INFO is sent so that TCP packet won't overlap UDP packet
+most of the time.
+
+Message Encoding
+================
+
+Messages are fixed format, binary encoded.The Byte order of integar
+is Big-Endian. MSB(Most Significant Bit) is stored first while LSB(Lowest
+Significant Bit) is stored last.
+
+IP layer
+----------------------
+
+The IP packet is made by two parts: the IP header and IP body. The IP
+header contains the protocol used in this packet. It helps to distinguish
+between TCP and UDP packet,so that the receiver know how to deal with it.
+The edition used by both computers should be the same.
+
+TCP layer
+---------
+The TCP packet is included in IP body. It contains two parts: TCP 
+header and TCP body. The length of TCP header is constantly 20 bytes.
+We won't use options and padding.
+
+INIT message format
+-------------------
+
+INIT messages are constant length, encoded as follows:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Message Type |    MazeNum    |  Current level|   food_count  |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           round                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                      determine_Master                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       pacman1 xCoordinate        |        pacman1 yCoordinate |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       pacman2 xCoordinate        |        pacman2 yCoordinate |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    - Message Type: MUST be constant char 'I' indicating this is an INIT message
+
+    - MazeNum: An 8 bits integar, MUST between 0 and 2, indicating the 
+    maze used by both computer.
+
+    - round: An 32 bits integar.
+
+    - determine_Master: An 32 bits integar, MUST between 1 and 1000.
+
+    - The coordinates of first player exit: It contains two 16 bits integars.
+
+    - The coordinates of second player exit: It contains two 16 bits integars.
+
+    - Current Level: An 8 bits integar MUST between 0 and 2.
+
+    - food_count: An 8 bits integar indicating total number of foods,MUST
+    between 0 to 250.
+
+KEY_INFO message format
+-----------------------
+
+KEY_INFO messages are constant length, encoded as follows:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Message Type |        lives update           |               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           pacman died                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           pacman arrived                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           pacman left                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           pacman go home                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           is_foreign                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           id of ghost                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       xCoordinate               |        yCoordinate          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           is_powerpill                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           status update                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    - Message Type: constant char 'K' indicating this is a KEY_INFO message
+  
+    - pacman died, pacman arrived, pacman left, pacman go home: 32 bits 
+    boolean value.
+   
+    - Eaten Ghost is a combined message by a 32 bits boolean value is_foreign
+    and a 32 bits integar as the id of ghost.
+  
+    - eat: Combined by two 16 bits integars coordinates and two 32 bits 
+    boolean values.
+   
+    - status update: An 32 bits integar indicating game status,MUST between 0 and 3.
+        0 means no status update,1 means GAME_OVER, 2 means 
+        NEXT_LEVEL_WAIT,3 means READY_TO_RESTART.
+    
+    - lives update: An 16 bits integar indicating pacman rest lives,MUST 
+    between 0 and 5.
+   
+    - is_powerpill: An 32 bits boolean value indicating whether the item
+    eaten by pacman is a powerpill.
+    
+    - is_foreign: An 32 bits boolean value indicating which pacman eat the
+    item.
+
+UDP layer
+---------
+The UDP packet is include in IP body. It contains two parts: UDP header
+and UDP body. The length of UDP header is constantly 8 bytes. It include
+the constant length of our message.
+
+STREAM_INFO message format
+--------------------------
+
+STREAM_INFO messages are constant length, encoded as follows:
+
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|  Message Type |                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       pacman xCoordinate        |        pacman yCoordinate   |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       pacman direction          |        pacman speed         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       ghost id                  |        ghost mode           |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       ghost xCoordinate         |        ghost yCoordinate    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|       ghost direction           |        ghost speed          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           score update                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                           maze update                         |
+|                                ...                            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+    - Message Type: constant char 'S' indicating this is a KEY_INFO message
+    
+    - pacman update: Combined by two 16 bits integar coordinates, and two 16 bits
+    integars indicating direction and speed.
+
+        For direction, value MUST between 0 and 3. 0 means UP,1 means DOWN,
+    2 means LEFT,3 means RIGHT. Pacman speed is times by 10 to get integar.
+
+    - ghost update: Combined by two 16 bits integar coordinates,two 16 bits
+    integars indicating direction and speed, a 16 bits integar id, a 16 bits
+    integar indicating the mode. Ghost speed is times by 10 to get integar.
+
+        For direction, value MUST between 0 and 3.0 means UP,1 means DOWN,2 
+    means LEFT,3 means RIGHT. 
+    
+        For mode, value MUST between 0 and 3.0 means SCATTER, 1 means CHASE, 
+    2 means FRIGHTEN_TRAPPED, 3 means TRIGHTEN_EYES.
+    
+    - score update: An 32 bits integar represent current score. 
+    
+    - maze update: A char array indicating current maze situation. 
